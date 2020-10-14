@@ -1,0 +1,6 @@
+Google web 1T
+https://catalog.ldc.upenn.edu/LDC2006T13
+Google Ngram
+http://storage.googleapis.com/books/ngrams/books/datasetsv2.html
+peter norvig spell
+https://norvig.com/spell-correct.html
