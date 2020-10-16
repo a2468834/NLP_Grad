@@ -13,7 +13,6 @@ import kenlm
 import math
 import operator
 import re
-import time
 
 
 # Global variables
@@ -63,9 +62,11 @@ class TAProvided:
 # Convert a python-list into several words with whitespaces (i.e., a sentence).
 def list2Sent(input_list):
     output_sentence = ""
-    for index in range(0, len(input_list)):
+    for index in range(len(input_list)):
         if input_list[index] == '':
             pass
+        elif input_list[index] == '.':
+            output_sentence = output_sentence[0:-1] + input_list[index] + ' '
         else:
             output_sentence = output_sentence + input_list[index] + ' '
     # Remove the last character ' ' in the string
@@ -79,77 +80,71 @@ def combinationOfDict(input_dict):
     return list(itertools.product(*(input_dict[key] for key in sorted(input_dict))))
 
 
+# Pick typos in 'sentence' and correct them.
 def tokens_check(sentence):
     sentence_tokenized = uniGramTokenize(sentence.lower())
     
     # If a piece of tokenized sentence is not contained in 'uni_gram_count', it must be a tpoy.
-    typo_index = [i for i in range(0, len(sentence_tokenized)) if uni_gram_count[sentence_tokenized[i]] == 0]
+    typo_index = [i for i in range(len(sentence_tokenized)) if uni_gram_count[sentence_tokenized[i]] == 0]
     
     typo_candidate = {i : TAProvided.suggest(sentence_tokenized[i]) for i in typo_index}
     
-    possible_sentence = []
+    possible_sent = []
     for each_comb in combinationOfDict(typo_candidate):
         correct_sent = sentence_tokenized
-        for i in range(0, len(each_comb)): correct_sent[typo_index[i]] = each_comb[i]
-        possible_sentence.append(list2Sent(correct_sent))
+        for i in range(len(each_comb)): correct_sent[typo_index[i]] = each_comb[i]
+        possible_sent.append(list2Sent(correct_sent))
     
     max_score = -float("inf")
     max_score_index = 0
-    for i in range(0, len(possible_sentence)):
-        temp_score = model.score(possible_sentence[i], bos=True, eos=True) / len(uniGramTokenize(possible_sentence[i]))
+    for i in range(len(possible_sent)):
+        temp_score = model.score(possible_sent[i], bos=True, eos=True) / len(uniGramTokenize(possible_sent[i]))
         if max_score < temp_score:
             max_score, max_score_index = temp_score, i
-    return possible_sentence[max_score_index]
+    return possible_sent[max_score_index]
 
 
-# Generate all combinations of determiners and prepositions to original sentence
-def generate_candidates(tokens):
-    # Find all of determiners and prepositions' indices in 'tokens'
-    tokens_dets_index = [i for i in range(0, len(tokens)) if tokens[i] in set(dets)]
-    tokens_preps_index = [i for i in range(0, len(tokens)) if tokens[i] in set(preps)]
+# Generate all combinations of determiners and prepositions within the original sentence
+def generate_candidates(input_tokens):
+    # Find all of determiners and prepositions' indices in 'input_tokens'
+    dets_index = [i for i in range(len(input_tokens)) if input_tokens[i] in set(dets)]
+    preps_index = [i for i in range(len(input_tokens)) if input_tokens[i] in set(preps)]
+    all_index = sorted(dets_index + preps_index)
     
-    # Code Review Here
-    dets_preps_dict = {}
-    for i in tokens_dets_index:
-        dets_preps_dict[i] = list(dets)
-    for i in tokens_preps_index:
-        dets_preps_dict[i] = list(preps)
-    
-    all_keys = sorted(dets_preps_dict)
-    combinaitons = list(itertools.product(*(dets_preps_dict[Name] for Name in all_keys)))
+    enumeration_dict = {**{i : list(dets) for i in dets_index}, **{j : list(preps) for j in preps_index}} # Merge two dicts: {**{}, **{}}
     
     result = []
-    for one_comb in combinaitons:
-        temp = tokens
-        for i in range(0, len(one_comb)):
-            temp[all_keys[i]] = one_comb[i]
+    for each_comb in combinationOfDict(enumeration_dict):
+        temp = input_tokens
+        for i in range(len(each_comb)): temp[all_index[i]] = each_comb[i]
         result.append(list2Sent(temp))
     return result
 
 
+# Correct typos in 'sentence', then substitute all dets and preps in 'sentence' into correct ones.
 def process_sent(sentence):
     correct_sent = tokens_check(sentence)
-    all_candi = generate_candidates(uniGramTokenize(correct_sent))
+    possible_sent = generate_candidates(uniGramTokenize(correct_sent))
     
-    max_score = -99999.99999
+    max_score = -float("inf")
     max_score_index = 0
-    for i in range(0, len(all_candi)):
-        tmp = model.score(all_candi[i], bos=True, eos=True) / len(uniGramTokenize(all_candi[i]))
-        if max_score < tmp:
-            max_score = tmp
-            max_score_index = i
-    return all_candi[max_score_index]
+    for i in range(0, len(possible_sent)):
+        temp_score = model.score(possible_sent[i], bos=True, eos=True)
+        temp_score = temp_score / len(uniGramTokenize(possible_sent[i]))
+        if max_score < temp_score:
+            max_score, max_score_index = temp_score, i
+    return possible_sent[max_score_index]
 
 
 if __name__ == "__main__":
     print("\n")
     task_1_text = 'he sold everythin except the housee'
-    task_2_text = 'we discuss a possible meaning by it .'
+    task_2_text = 'we discuss a possble meaning by it.'
 
     print("###### Task1 ######")
     print("Before: %s"%task_1_text)
     print("After:  %s"%tokens_check(task_1_text))
-    exit()
+    
     print("\n")
     
     print("###### Task2 ######")
