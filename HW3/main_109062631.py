@@ -52,7 +52,7 @@ def reducer(data):
     total_dict = sorted(total_dict.items(), key=lambda x : x[1], reverse=True)
     
     with open("HW3_109062631.out", "w") as fptr:
-        for index in range(35):
+        for index in range(200):
             fptr.write(str(total_dict[index][0]))
             fptr.write("\t")
             fptr.write(str(total_dict[index][1]))
