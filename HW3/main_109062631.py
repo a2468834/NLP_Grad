@@ -31,8 +31,7 @@ def mapper(row):
         skip_gram_count    = None
     
     del tokens
-    if (skip_gram, skip_gram_distance) == ('the of', 2):
-        print(str(row) + "\n")
+    if (skip_gram, skip_gram_distance) == ('the of', 2): print(str(row) + "\n")
     
     return ((skip_gram, skip_gram_distance), skip_gram_count)
 
