@@ -52,7 +52,7 @@ def reducer(data):
     # Turn python-dict into a sorted python-list
     total_dict = sorted(total_dict.items(), key=lambda x : x[1], reverse=True)
     
-    with open("output.txt", "w") as fptr:
+    with open("HW3_109062631.o", "w") as fptr:
         for index in range(35):
             fptr.write(str(total_dict[index][0]))
             fptr.write("\t")
