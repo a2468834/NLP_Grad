@@ -31,8 +31,6 @@ def mapper(row):
         skip_gram_count    = None
     
     del tokens
-    if (skip_gram, skip_gram_distance) == ('the of', 2): print(str(row) + "\n")
-    if (skip_gram, skip_gram_distance) == ('of the', 2): print("% " + str(row) + "\n")
     
     return ((skip_gram, skip_gram_distance), skip_gram_count)
 
@@ -62,12 +60,11 @@ def reducer(data):
 
 
 if __name__ == "__main__":
-    start = time.time()
     # Create multiprocessing pool
     pool = Pool()
     
     # Map
-    #print("Map Stage...")
+    print("Map Stage...")
     with open("web1t.baby") as f:
         baby1t = f.read().splitlines()
     
@@ -76,6 +73,5 @@ if __name__ == "__main__":
     del baby1t
     
     # Reduce
-    #print("Reduce Stage...")
+    print("Reduce Stage...")
     reducer(skipgram_count)
-    #print("Exe. time: %s"%str(datetime.timedelta(seconds=time.time()-start)))
