@@ -32,6 +32,7 @@ def mapper(row):
     
     del tokens
     if (skip_gram, skip_gram_distance) == ('the of', 2): print(str(row) + "\n")
+    if (skip_gram, skip_gram_distance) == ('of the', 2): print("% " + str(row) + "\n")
     
     return ((skip_gram, skip_gram_distance), skip_gram_count)
 
@@ -51,6 +52,7 @@ def reducer(data):
     # Turn python-dict into a sorted python-list
     total_dict = sorted(total_dict.items(), key=lambda x : x[1], reverse=True)
     
+    # Output TOP200 of most frequent skip-grams
     with open("HW3_109062631.out", "w") as fptr:
         for index in range(200):
             fptr.write(str(total_dict[index][0]))
@@ -65,7 +67,7 @@ if __name__ == "__main__":
     pool = Pool()
     
     # Map
-    print("Map Stage...")
+    #print("Map Stage...")
     with open("web1t.baby") as f:
         baby1t = f.read().splitlines()
     
@@ -74,6 +76,6 @@ if __name__ == "__main__":
     del baby1t
     
     # Reduce
-    print("Reduce Stage...")
+    #print("Reduce Stage...")
     reducer(skipgram_count)
-    print("Exe. time: %s"%str(datetime.timedelta(seconds=time.time()-start)))
+    #print("Exe. time: %s"%str(datetime.timedelta(seconds=time.time()-start)))
