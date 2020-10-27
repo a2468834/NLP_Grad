@@ -9,29 +9,23 @@
 #   Environment: Python 3.8.5 on Windows 10(1916) with Intel Core i7-10510U
 from collections     import Counter
 from multiprocessing import Pool
-from tqdm            import tqdm
-import datetime
-import fileinput
 import gc
 import re
-import time
 
 
 # '$' represents empty character.
 def mapper(row):
     tokens = re.findall(r'\w+', row)
-    
     try:
-        skip_gram          = tokens[0] + ' ' + tokens[-2]
-        skip_gram_distance = (len(tokens)-1)-1
+        skip_gram          = tokens[0] + ' ' + tokens[-2] # include testing uni-gram case
+        skip_gram_distance = len(tokens)-2
         skip_gram_count    = int(tokens[-1])
     except:
         skip_gram          = '$'
         skip_gram_distance = 0
         skip_gram_count    = None
-    
+    del row
     del tokens
-    
     return ((skip_gram, skip_gram_distance), skip_gram_count)
 
 
