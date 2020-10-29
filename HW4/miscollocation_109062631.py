@@ -7,103 +7,131 @@
 #   Writer_ID:      109062631
 #   Writer_Name:    Wang, Chuan-Chun
 #   
-#   SW Environment: Python 3.8.5 [GCC 9.3.0] on Ubuntu 20.04.1 LTS
-#   HW Environment: AMD Ryzen 5 3400G w/ 32GB ram w/o discrete GPU
-import spacy
-from nltk.corpus import wordnet as wn
+#   Environment:    
+#      Software:    Python 3.8.5 on 64-bit Windows 10 Pro v2004
+#      Hardware:    Intel i7-10510U, 16GB DDR4 non-ECC ram, and no discrete GPU
+from nltk.corpus import wordnet
+from transformers import pipeline
+import itertools
 import nltk
-nltk.download('wordnet')
-from transformers import *
 import numpy
 import re
-import itertools
+import spacy
 
 
-# 步驟 1: OK
-def check_sentence_vn(doc):
+class textColor:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+
+def check_sentence_vn(spacy_doc):
     result = []
-    # Find all dep_=='dobj'
-    dobj_list = [(index, doc[index]) for index in range(len(doc)) if doc[index].dep_=='dobj']
     
-    for each_dobj in dobj_list:
-        for index in range(len(doc)):
-            if doc[index].text==str(each_dobj[1].head): each_dobj_head = (index, doc[index])
-        result.append([(each_dobj_head[1].text, each_dobj_head[0]), (each_dobj[1].text, each_dobj[0])])
+    for spacy_token in spacy_doc:
+        # The '.head' of spacy-dobj token must be a verb or auxiliary verb.
+        if spacy_token.dep_ == 'dobj':
+            collocation_1st_part = (spacy_token.head.text, spacy_token.head.i)
+            collocation_2nd_part = (spacy_token.text, spacy_token.i)
+            result.append([collocation_1st_part, collocation_2nd_part])
     
     return result
 
 
-model = "bert-large-uncased"
-p = pipeline("fill-mask", model=model, topk=100)
+def mask_cand(sentence, verb_index, tfs_model):
+    sentence_tokenized = re.findall(r'\w+|[,.?]', sentence)
+    sentence_tokenized[verb_index] = "[MASK]"
+    return tfs_model(list2StrSent(sentence_tokenized))
 
 
-# 步驟 2: OK
-def mask_cand(sentence, verb_index):
-    sentence_tokens = re.findall(r'\w+|[,.?]', sentence)
-    sentence_tokens[verb_index] = "[MASK]"
-    return p(list2Sent(sentence_tokens))
+def replaceWithMASK(sentence, replace_index):
+    tokenization                = re.findall(r'\w+|[,.?]', sentence)
+    tokenization[replace_index] = "[MASK]"
+    return list2StrSent(tokenization)
 
 
-def list2Sent(input_list):
+def list2StrSent(input_list):
     output_sentence = ""
-    for index in range(len(input_list)):
-        if input_list[index] == '':
+    
+    for item in input_list:
+        if item == '':
             pass
-        elif input_list[index] == '.':
-            output_sentence = output_sentence[0:-1] + input_list[index] + ' '
+        elif item == '.':
+            output_sentence = output_sentence[0:-1] + item + ' '
         else:
-            output_sentence = output_sentence + input_list[index] + ' '
-    # Remove the last character ' ' in the string
+            output_sentence = output_sentence + item + ' '
+    
+    # Remove the last character ' ' in the string sentence.
     return output_sentence[0:-1]
 
 
-# 步驟 3
-def similarity(miscollocations, sentence):
-    for i in range(5): print()
-    
-    for each_collocation in miscollocations:
+# collocations = [[collocation_1st_part, collocation_2nd_part], [...], ...]
+# E.g., [[('identify', 4), ('output', 7)], [('reach', 10), ('purpose', 12)]]
+# See check_sentence_vn() to find more details about collocation_1st_part & collocation_2nd_part
+def similarity(collocations, sentence, tfs_model):
+    for each_collocation in collocations:
         total_result = []
-        origin_synsets = wn.synsets(each_collocation[0][0], 'v')
-        mask_list = mask_cand(sentence, each_collocation[0][1])
+        orig_synsets = wordnet.synsets(each_collocation[0][0], 'v')
+        mask_list    = mask_cand(sentence, each_collocation[0][1], tfs_model) # a list of dicts
         
-        for each_mask in mask_list:
-            candid_synsets =  wn.synsets(each_mask['token_str'], 'v')
+        for mask_outcome in mask_list:
+            cand_synsets   =  wordnet.synsets(mask_outcome['token_str'], 'v')
+            cartesian_comb = list(itertools.product(orig_synsets, cand_synsets))
             
-            all_combination = list(itertools.product(origin_synsets, candid_synsets))
+            similarity = 0.0
+            for each_comb in cartesian_comb:
+                temp_similarity = each_comb[0].path_similarity(each_comb[1]) # calculate WordNet similarity between two WordNet synsets.
+                if temp_similarity > similarity: similarity = temp_similarity
             
-            similarity = 0
-            for comb in all_combination:
-                temp = comb[0].path_similarity(comb[1])
-                if temp > similarity: similarity = temp
-            
-            if (similarity >= 0.4) and (each_mask['token_str'] != each_collocation[0][0]):
-                total_result.append((each_mask['token_str'], each_collocation[1][0], similarity, each_mask['score']))
-        total_result = sorted(total_result, key=lambda tup : tup[2], reverse=True)
-        total_result = sorted(total_result, key=lambda tup : tup[3], reverse=True)
-        print(sentence)
-        for item in total_result: print(item)
-        print()
-        print()
+            if (similarity > 0.4) and (mask_outcome['token_str'] != each_collocation[0][0]):
+                total_result.append((mask_outcome['token_str'], each_collocation[1][0], similarity, mask_outcome['score']))
+        
+        # Sort total_result by 'similarity' (1st pri) and 'mask_outcome['score']'
+        total_result = sorted(total_result, key=lambda tup : (tup[2], tup[3]), reverse=True)
+        
+        # Print out results
+        print(replaceWithMASK(sentence, each_collocation[0][1]))
+        print_template = "({0:16} | {1:16} | {2:.2f} | {3:.5f})"
+        for item in total_result:
+            print(print_template.format(*item))
+        print("\n\n")
 
 
-nlp = spacy.load('en_core_web_sm')
-
-# Test 1
-doc, sentence = nlp("They all have the mistake."), "They all have the mistake."
-miscollocations = check_sentence_vn(doc)
-similarity(miscollocations, sentence)
-
-# Test 2
-doc, sentence = nlp("I reach the dream as a teacher now."), "I reach the dream as a teacher now."
-miscollocations = check_sentence_vn(doc)
-similarity(miscollocations, sentence)
-
-# Test 3
-doc, sentence = nlp("This does not entail that we never learn knowledge."), "This does not entail that we never learn knowledge."
-miscollocations = check_sentence_vn(doc)
-similarity(miscollocations, sentence)
-
-# Test 4
-doc, sentence = nlp("Just as we must identify all the outputs necessary to reach the purpose."), "Just as we must identify all the outputs necessary to reach the purpose."
-miscollocations = check_sentence_vn(doc)
-similarity(miscollocations, sentence)
+# Main function
+if __name__ == "__main__":
+    # About pretrained models of 'transformers': https://huggingface.co/transformers/pretrained_models.html
+    print(f"{textColor.OKGREEN}Loading transformers model.{textColor.ENDC}")
+    tfs_model = pipeline("fill-mask", model="bert-large-uncased", topk=100)
+    print(f"{textColor.OKGREEN}Load-in completed.\n\n\n{textColor.ENDC}")
+    
+    # Dependency parser of spaCy
+    spacy_model = spacy.load('en_core_web_sm')
+    
+    # Test case 1
+    sentence = "They all have the mistake."
+    collocations = check_sentence_vn(spacy_model(sentence))
+    similarity(collocations, sentence, tfs_model)
+    print("\n\n")
+    
+    # Test case 2
+    sentence = "I reach the dream as a teacher now."
+    collocations = check_sentence_vn(spacy_model(sentence))
+    similarity(collocations, sentence, tfs_model)
+    print("\n\n")
+    
+    # Test case 3
+    sentence = "This does not entail that we never learn knowledge."
+    collocations = check_sentence_vn(spacy_model(sentence))
+    similarity(collocations, sentence, tfs_model)
+    print("\n\n")
+    
+    # Test case 4
+    sentence = "Just as we must identify all the outputs necessary to reach the purpose."
+    collocations = check_sentence_vn(spacy_model(sentence))
+    similarity(collocations, sentence, tfs_model)
