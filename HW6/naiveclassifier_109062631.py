@@ -138,7 +138,7 @@ if __name__ == "__main__":
     total_dataset_w_feature = pool.map(calcFeatures, itertools.product(total_dataset, [word_count]))
     
     opt_accuracy, opt_total_dataset, opt_total_dataset_w_feature = 0.0, None, None
-    for epoch in range(10000):
+    for epoch in range(100):
         rand_int = int(time.time())
         random.Random(rand_int).shuffle(total_dataset)
         random.Random(rand_int).shuffle(total_dataset_w_feature)
