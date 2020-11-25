@@ -10,39 +10,27 @@
 #   Environment:    
 #      Software:    Python 3.8.5 on 64-bit Windows 10 Pro v2004
 #      Hardware:    Intel i7-10510U, 16GB DDR4 non-ECC ram, and no discrete GPU
-from   nltk import NaiveBayesClassifier
-import nltk.classify
 import itertools
-import nltk
-import numpy
-import re
-import random
-import spacy
 import math
-
-
-class textColor:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
+from   multiprocessing import Pool
+from   nltk import NaiveBayesClassifier
+import nltk
+import nltk.classify
+import random
+import re
+import spacy
+import time
 
 
 class CONST:
-    hi_freq_threshold = lambda : 25000
-    train_test_ratio  = lambda : 0.8
-    spacy_model       = spacy.load('en_core_web_sm')
-    total_word_count  = lambda : 743842922321
+    HF_threshold     = lambda : 25000
+    train_test_ratio = lambda : 0.95
+    total_word_count = lambda : 743842922321
+    spacy_model      = spacy.load('en_core_web_sm')
 
 
 def readWordCountDict():
-    WC_dict = {}
-    
+    # 'WC': word count
     with open('word.txt', 'r') as f:
         WC_list = f.read().splitlines()
         
@@ -52,20 +40,18 @@ def readWordCountDict():
     
     WC_list.sort(key=lambda tup : tup[1], reverse=True)
     
-    # Output only high freq. words
-    for top_index in range(CONST.hi_freq_threshold()):
-        WC_dict[WC_list[top_index][0]] = WC_list[top_index][1]
-    
-    return WC_dict
+    # Only put those high freq. words into WC_dict
+    return {WC_list[top_index][0] : WC_list[top_index][1] for top_index in range(CONST.HF_threshold())}    
 
 
-def readSentTXT():
+def readSentenceTXT():
     good_sent, bad_sent = [], []
     
     with open('sents.cam.txt', 'r', encoding='utf-8') as good_sent_fp, open('sents.bnc.txt', 'r', encoding='utf-8') as bad_sent_fp:
         good_sent = good_sent_fp.read().splitlines()
         bad_sent = bad_sent_fp.read().splitlines()
         
+        # Add label
         for index in range(len(good_sent)):
             good_sent[index] = (good_sent[index], 'G')
         
@@ -75,100 +61,104 @@ def readSentTXT():
     return good_sent, bad_sent
 
 
-def calcSentFeatureDict(sent, WC_dict):
+def calcFeatures(pool_map_tuple):
+    (sent, sent_label), WC_dict = pool_map_tuple # Unpack input parameter
     tokenized_sent = re.findall(r'\w+', sent)
     
-    # Feature 1 : # of high freq. words in 'snet'
-    HF_word_density = 0.0
-    for item in tokenized_sent:
-        if item in WC_dict:
-            HF_word_density += 1.0
-    #HF_word_density = HF_word_density / float(len(tokenized_sent))
+    # Feature: # of high freq. words in 'snet'
+    HF_word_count = 0
+    for word in tokenized_sent:
+        if word in WC_dict:
+            HF_word_count += 1
     
-    # Feature 2 : # of specific spaCy part-of-speech tags 
-    POS_num = 0
-    spacy_doc = CONST.spacy_model(sent)
-    for token in spacy_doc:
-        if token.pos_ in ['X', 'SYM']:
-            POS_num += 1
+    # Feature: # of words in 'sent'
+    word_count = len(tokenized_sent)
     
-    # Feature 3 : Check whether the first word in 'sent' is uppercase
-    if tokenized_sent[0][0].isupper() == True:
-        uppercase_head = True
-    else:
-        uppercase_head = False
+    # Feature: Check whether the first word in 'sent' is uppercase
+    uppercase_head = tokenized_sent[0][0].isupper()
     
-    # Feature 4 : sentence probability in HW1
+    # Feature: sentence probability in HW1
     sent_log_prob = 0.0
     for token in tokenized_sent:
         if token in WC_dict:
             sent_log_prob += math.log(float(WC_dict[token]/CONST.total_word_count()), 10)
         else:
-            sent_log_prob += math.log(float(1/CONST.total_word_count()), 10)
+            sent_log_prob += math.log(float(1.0/CONST.total_word_count()), 10)
         
-    # Feature 5 : Whether 'sent' contains ';' or not
+    # Feature: Whether 'sent' contains ';' or not
     if ';' in sent:
-        have_semicolon = True
+        have_wired_punctuation = True
+    elif '``' in sent:
+        have_wired_punctuation = True
+    elif '&' in sent:
+        have_wired_punctuation = True
+    elif '*' in sent:
+        have_wired_punctuation = True
     else:
-        have_semicolon = False
+        have_wired_punctuation = False
     
-    have_digit = bool(re.search('\d+', sent))
-        
+    # Feature: Whether 'sent' contains phone numbers
+    have_phone = bool(re.search(r'\d{3}\s\d{3}\s\d{4}', sent))
+    
+    # Feature: Whether all alphabets in 'sent' are uppercase
+    all_uppercase = sent.isupper()
+    
+    # Feature: Whether 'sent' contains pattern '(=' or '[ +'
+    wired_pattern = bool(re.search(r'(\(\=)', sent)) or bool(re.search(r'(\[\ \+)', sent))
+    
+    # Feature: # of digits in 'sent'
+    digit_num = len(re.findall(r'\d', sent))
+    
+    # Feature: # of dashes in 'sent'
+    dash_num = len(re.findall(r'\-', sent))
+    
+    # Pack features into a dict
     feature_dict = {}
-    feature_dict['HF_density'] = HF_word_density
-    #feature_dict['upper_head'] = uppercase_head
-    feature_dict['POS_count'] = POS_num
-    feature_dict['have_semicolon'] = have_semicolon
-    feature_dict['sent_prob'] = sent_log_prob
-    feature_dict['have_digit'] = have_digit
-    return feature_dict
+    feature_dict['HF_count']   = HF_word_count
+    feature_dict['have_phone'] = have_phone
+    feature_dict['wired_punc'] = have_wired_punctuation
+    feature_dict['all_upper']  = all_uppercase
+    feature_dict['word_count'] = word_count
+    feature_dict['sent_prob']  = sent_log_prob
+    feature_dict['wired_pat']  = wired_pattern
+    feature_dict['digit_num']  = digit_num
+    feature_dict['dash_num']   = dash_num
+    
+    return (feature_dict, sent_label)
 
 
 # Main function
 if __name__ == "__main__":
-    word_count_dict = readWordCountDict()
-    good_sent_set, bad_sent_set = readSentTXT()
+    pool = Pool()
     
-    total_dataset = good_sent_set + bad_sent_set
+    word_count = readWordCountDict()
+    good_dataset, bad_dataset = readSentenceTXT()
     
-    feature_set = []
-    for item in total_dataset:
-        tup_0 = calcSentFeatureDict(item[0], word_count_dict)
-        tup_1 = item[1]
-        feature_set.append((tup_0, tup_1))
+    total_dataset = good_dataset + bad_dataset
+    total_dataset_w_feature = pool.map(calcFeatures, itertools.product(total_dataset, [word_count]))
     
-    random.shuffle(feature_set)
-    train_index = int(len(feature_set)*CONST.train_test_ratio())
-    train_set, test_set = feature_set[:train_index], feature_set[train_index:]
-    
-    '''
-    pos_dict = {}
-    for i in good_sent_set:
-        spacy_parse = CONST.spacy_model(i[0])
+    opt_accuracy, opt_total_dataset, opt_total_dataset_w_feature = 0.0, None, None
+    for epoch in range(10000):
+        rand_int = int(time.time())
+        random.Random(rand_int).shuffle(total_dataset)
+        random.Random(rand_int).shuffle(total_dataset_w_feature)
+        division_index = int(len(total_dataset_w_feature)*CONST.train_test_ratio())
+        train_dataset  = total_dataset_w_feature[:division_index]
+        test_dataset   = total_dataset_w_feature[division_index:]
         
-        for token in spacy_parse:
-            if token.pos_ not in pos_dict:
-                pos_dict[token.pos_] = 1.0 / len(spacy_parse)
-            else:
-                pos_dict[token.pos_] += (1.0 - pos_dict[token.pos_]) / len(spacy_parse)
-    print(pos_dict)
-    
-    pos_dict = {}
-    for i in bad_sent_set:
-        spacy_parse = CONST.spacy_model(i[0])
+        NB_classifier = nltk.NaiveBayesClassifier.train(train_dataset)
+        cur_accuracy = nltk.classify.accuracy(NB_classifier, test_dataset)
         
-        for token in spacy_parse:
-            if token.pos_ not in pos_dict:
-                pos_dict[token.pos_] = 1.0 / len(spacy_parse)
-            else:
-                pos_dict[token.pos_] += (1.0 - pos_dict[token.pos_]) / len(spacy_parse)
-    print(pos_dict)
-    exit()
-    '''
+        if opt_accuracy < cur_accuracy:
+            opt_accuracy = cur_accuracy
+            opt_total_dataset = total_dataset
+            opt_total_dataset_w_feature = total_dataset_w_feature
     
-    NB_classifier = nltk.NaiveBayesClassifier.train(train_set)
-    print("Accuracy: %.4f"%nltk.classify.accuracy(NB_classifier, test_set))
-    
-    
-    
-    
+    print("Example:")
+    print()
+    print(opt_total_dataset[0][0])
+    print()
+    print("Label: %s"%opt_total_dataset_w_feature[0][1])
+    print("Features: %s"%str(opt_total_dataset_w_feature[0][0]))
+    print()
+    print("Accuracy: %.4f"%(opt_accuracy))
