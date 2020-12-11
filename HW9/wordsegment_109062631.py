@@ -15,6 +15,7 @@ from   itertools import combinations_with_replacement
 import json
 import math
 import re
+import threading
 
 
 def segment(text):
@@ -31,9 +32,7 @@ def prob(word_seg, some_fix_ctr):
         return some_fix_ctr[word_seg] / some_fix_count_sum
 
 
-def calcPrefixCounter(word_attr_list):
-    prefix_ctr = Counter()
-    
+def calcPrefixCounter(word_attr_list, prefix_ctr):
     for each_word_attr in word_attr_list:
         for each_term in (each_word_attr["foreigns"]+each_word_attr["cross-references"]):
             if (each_term == '') or (each_term[0] == '*') or (each_term[0] == '-' and each_term[-1] == '-'):
@@ -41,13 +40,9 @@ def calcPrefixCounter(word_attr_list):
             else:
                 if (each_term[0] != '-') and (each_term[-1] == '-') and (each_term[1:-1].isalpha() == True):
                     prefix_ctr.update({each_term[:-1] : 1})
-    
-    return prefix_ctr
 
 
-def calcAffixCounter(word_attr_list):
-    affix_ctr = Counter()
-    
+def calcAffixCounter(word_attr_list, affix_ctr):
     for each_word_attr in word_attr_list:
         for each_term in (each_word_attr["foreigns"]+each_word_attr["cross-references"]):
             if (each_term == '') or (each_term[0] == '*') or (each_term[0] == '-' and each_term[-1] == '-'):
@@ -55,13 +50,9 @@ def calcAffixCounter(word_attr_list):
             else:
                 if (each_term[0] != '-') and (each_term[-1] != '-') and (each_term[1:-1].isalpha() == True):
                     affix_ctr.update({each_term : 1})
-    
-    return affix_ctr
 
 
-def calcSuffixCounter(word_attr_list):
-    suffix_ctr = Counter()
-    
+def calcSuffixCounter(word_attr_list, suffix_ctr):
     for each_word_attr in word_attr_list:
         for each_term in (each_word_attr["foreigns"]+each_word_attr["cross-references"]):
             if (each_term == '') or (each_term[0] == '*') or (each_term[0] == '-' and each_term[-1] == '-'):
@@ -69,8 +60,6 @@ def calcSuffixCounter(word_attr_list):
             else:
                 if (each_term[0] == '-') and (each_term[-1] != '-') and (each_term[1:-1].isalpha() == True):
                     suffix_ctr.update({each_term[1:] : 1})
-    
-    return suffix_ctr
 
 
 if __name__ == '__main__':
@@ -79,9 +68,19 @@ if __name__ == '__main__':
     with open('etym.entries.v1.format.json', 'r') as f:
         word_attr_list = json.load(f)["results"]
     
-    prefix_ctr = calcPrefixCounter(word_attr_list)
-    affix_ctr  = calcAffixCounter(word_attr_list)
-    suffix_ctr = calcSuffixCounter(word_attr_list)
+    prefix_ctr, affix_ctr, suffix_ctr = Counter(), Counter(), Counter()
+    
+    t_prefix = threading.Thread(target=calcPrefixCounter, args =(word_attr_list, prefix_ctr))
+    t_affix = threading.Thread(target=calcAffixCounter, args =(word_attr_list, affix_ctr))
+    t_suffix = threading.Thread(target=calcSuffixCounter, args =(word_attr_list, suffix_ctr))
+    
+    t_prefix.start()
+    t_affix.start()
+    t_suffix.start()
+    
+    t_prefix.join()
+    t_affix.join()
+    t_suffix.join()
     
     for each_word in word_list:
         prob_list = []
