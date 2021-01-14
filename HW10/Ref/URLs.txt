@@ -1,0 +1,15 @@
+https://towardsdatascience.com/stemming-lemmatization-what-ba782b7c0bd8
+https://ithelp.ithome.com.tw/articles/10214221
+https://medium.com/pyladies-taiwan/nltk-%E5%88%9D%E5%AD%B8%E6%8C%87%E5%8D%97-%E4%BA%8C-%E7%94%B1%E5%A4%96%E8%80%8C%E5%85%A7-%E5%BE%9E%E8%AA%9E%E6%96%99%E5%BA%AB%E5%88%B0%E5%AD%97%E8%A9%9E%E6%8B%86%E8%A7%A3-%E4%B8%8A%E6%89%8B%E7%AF%87-e9c632d2b16a
+https://github.com/clips/pattern
+https://www.zmonster.me/2016/01/21/lemmatization-survey.html
+https://stackoverflow.com/questions/6658380/can-wordnetlemmatizer-in-nltk-stem-words
+https://www.nltk.org/howto/stem.html
+https://stackoverflow.com/questions/1602934/check-if-a-given-key-already-exists-in-a-dictionary
+https://stackoverflow.com/questions/47519987/how-to-use-pos-tag-in-nltk
+https://blog.csdn.net/JasonJarvan/article/details/79955664
+https://www.geeksforgeeks.org/python-lemmatization-with-nltk/
+https://blog.csdn.net/zshfeng/article/details/50478881
+https://www.nltk.org/howto/wordnet.html
+https://stackoverflow.com/questions/26599276/value-vs-placeholder-attributes-in-html
+https://www.learnthat.org/pages/view/roots.html

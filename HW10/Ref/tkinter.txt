@@ -1,0 +1,5 @@
+https://www.merriam-webster.com/
+https://docs.python.org/3.8/library/tkinter.html#setting-options
+https://www.google.com.tw/search?sxsrf=ALeKk0206juns3PMSQsr47Ycx9Nv2L-wCA%3A1608193799908&ei=BxfbX9rNNpCkmAXdtBo&q=tkinter+tutorial+python+3&oq=tkinter+tutorial+&gs_lcp=CgZwc3ktYWIQAxgAMgUIABDLATIFCAAQywEyBQgAEMsBMgUIABDLATIFCAAQywEyBQgAEMsBMgUIABDLATIFCAAQywEyBwgAEAoQywEyBQgAEMsBOgQIIxAnUI8KWI8KYOoeaABwAHgAgAFFiAFykgEBMpgBAKABAaoBB2d3cy13aXrAAQE&sclient=psy-ab
+https://realpython.com/python-gui-tkinter/
+https://docs.python.org/3/library/tk.html
